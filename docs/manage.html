@@ -177,8 +177,8 @@
       f: 'json',
       where: '1=1',
       outFields: 'Town',
-      returnDistinctValues: 'true',
       returnGeometry: 'false',
+      returnDistinctValues: 'true',
       resultRecordCount: '500',
     });
     const res = await fetch(`${ARCGIS_URL}?${p}`);

@@ -207,7 +207,11 @@ def main():
     for email, towns in subscribers.items():
         relevant = stockings_for_subscriber(new_stockings, towns)
         if relevant:
-            html = format_email_html(relevant, coming_soon, email)
+            relevant_coming_soon = [
+                item for item in coming_soon
+                if item['attributes']['Town_1'] and item['attributes']['Town_1'].lower() in towns
+            ]
+            html = format_email_html(relevant, relevant_coming_soon, email)
             send_email(email, 'Fish Stocking Alert', html)
             print(f'Emailed {email} about {len(relevant)} stocking(s).')
 
