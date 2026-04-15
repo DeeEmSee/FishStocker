@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MA Fish Stocking Alerts</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 36px;
+      width: 100%;
+      max-width: 520px;
+    }
+    h1 { font-size: 1.5rem; color: #1a3a5c; margin-bottom: 6px; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 28px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; color: #444; margin-bottom: 6px; }
+    input[type="email"] {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus { border-color: #2a6496; }
+    .section-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #444;
+      margin: 20px 0 10px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .search-input:focus { border-color: #2a6496; }
+    .town-list {
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .town-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 6px;
+      font-weight: normal;
+      font-size: 0.9rem;
+      color: #333;
+      cursor: pointer;
+    }
+    .town-list label:hover { background: #f0f4f8; }
+    .town-list input[type="checkbox"] { accent-color: #2a6496; width: 15px; height: 15px; }
+    .loading { color: #888; font-size: 0.9rem; padding: 12px 6px; }
+    .error-msg { color: #c0392b; font-size: 0.85rem; padding: 8px 6px; }
+    .select-all-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+    .select-all-row a { color: #2a6496; cursor: pointer; text-decoration: none; }
+    .select-all-row a:hover { text-decoration: underline; }
+    button[type="submit"] {
+      width: 100%;
+      margin-top: 24px;
+      padding: 12px;
+      background: #2a6496;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button[type="submit"]:hover { background: #1e4d75; }
+    button[type="submit"]:disabled { background: #aaa; cursor: not-allowed; }
+    .status {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .status.success { background: #e8f5e9; color: #2e7d32; display: block; }
+    .status.error { background: #fdecea; color: #c0392b; display: block; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>MA Fish Stocking Alerts</h1>
+  <p class="subtitle">Get an email when your waters get stocked. No spam — only real stocking events.</p>
+
+  <form id="signup-form">
+    <label for="email">Email address</label>
+    <input type="email" id="email" name="email" placeholder="you@example.com" required>
+
+    <div class="section-label">Towns to watch</div>
+    <input type="text" class="search-input" id="town-search" placeholder="Search towns...">
+    <div class="select-all-row">
+      <a onclick="selectAll()">Select all</a>
+      <a onclick="clearAll()">Clear all</a>
+    </div>
+    <div class="town-list" id="town-list">
+      <div class="loading">Loading towns...</div>
+    </div>
+
+    <button type="submit" id="submit-btn">Subscribe</button>
+  </form>
+
+  <div class="status" id="status-msg"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ── Replace these with your actual values from Supabase project settings ──
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const ARCGIS_URL = 'https://services1.arcgis.com/7iJyYTjCtKsZS1LR/arcgis/rest/services/StockedFish_View/FeatureServer/0/query';
+
+  let allTowns = [];
+
+  async function loadTowns() {
+    try {
+      const params = new URLSearchParams({
+        f: 'json',
+        where: '1=1',
+        outFields: 'Town',
+        returnDistinctValues: 'true',
+        returnGeometry: 'false',
+        resultRecordCount: '500',
+        orderByFields: 'Town ASC',
+      });
+      const res = await fetch(`${ARCGIS_URL}?${params}`);
+      const data = await res.json();
+      allTowns = [...new Set(data.features.map(f => f.attributes.Town).filter(Boolean))].sort();
+      renderTowns(allTowns);
+    } catch (e) {
+      document.getElementById('town-list').innerHTML =
+        '<div class="error-msg">Failed to load towns. Please refresh.</div>';
+    }
+  }
+
+  function renderTowns(towns, preselected = new Set()) {
+    const list = document.getElementById('town-list');
+    if (towns.length === 0) {
+      list.innerHTML = '<div class="loading">No matching towns.</div>';
+      return;
+    }
+    list.innerHTML = towns.map(town => {
+      const checked = preselected.has(town) ? 'checked' : '';
+      return `<label>
+        <input type="checkbox" name="town" value="${town}" ${checked}>
+        ${town}
+      </label>`;
+    }).join('');
+  }
+
+  function getCheckedTowns() {
+    return [...document.querySelectorAll('input[name="town"]:checked')].map(el => el.value);
+  }
+
+  function selectAll() {
+    document.querySelectorAll('input[name="town"]').forEach(el => el.checked = true);
+  }
+
+  function clearAll() {
+    document.querySelectorAll('input[name="town"]').forEach(el => el.checked = false);
+  }
+
+  document.getElementById('town-search').addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    const filtered = allTowns.filter(t => t.toLowerCase().includes(q));
+    const checked = new Set(getCheckedTowns());
+    renderTowns(filtered, checked);
+  });
+
+  document.getElementById('signup-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    const towns = getCheckedTowns();
+    const statusEl = document.getElementById('status-msg');
+    const btn = document.getElementById('submit-btn');
+
+    statusEl.className = 'status';
+    statusEl.textContent = '';
+
+    if (towns.length === 0) {
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Please select at least one town.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await supabase.rpc('set_user_subscriptions', {
+      user_email: email,
+      towns: towns,
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Subscribe';
+
+    if (error) {
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Something went wrong. Please try again.';
+      console.error(error);
+    } else {
+      statusEl.className = 'status success';
+      statusEl.textContent = `You're subscribed! You'll get emails when ${towns.length} town${towns.length > 1 ? 's get' : ' gets'} stocked.`;
+      document.getElementById('signup-form').reset();
+      renderTowns(allTowns);
+    }
+  });
+
+  // Pre-fill email from query param (e.g. from manage link)
+  const urlEmail = new URLSearchParams(window.location.search).get('email');
+  if (urlEmail) {
+    document.getElementById('email').value = urlEmail;
+  }
+
+  loadTowns();
+</script>
+</body>
+</html>

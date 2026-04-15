@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Alerts – MA Fish Stocking</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 36px;
+      width: 100%;
+      max-width: 520px;
+    }
+    h1 { font-size: 1.5rem; color: #1a3a5c; margin-bottom: 6px; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 28px; }
+    .email-display {
+      background: #f0f4f8;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .section-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #444;
+      margin: 20px 0 10px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .search-input:focus { border-color: #2a6496; }
+    .town-list {
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .town-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 6px;
+      font-weight: normal;
+      font-size: 0.9rem;
+      color: #333;
+      cursor: pointer;
+    }
+    .town-list label:hover { background: #f0f4f8; }
+    .town-list input[type="checkbox"] { accent-color: #2a6496; width: 15px; height: 15px; }
+    .loading { color: #888; font-size: 0.9rem; padding: 12px 6px; }
+    .select-all-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+    .select-all-row a { color: #2a6496; cursor: pointer; text-decoration: none; }
+    .select-all-row a:hover { text-decoration: underline; }
+    .btn-row { display: flex; gap: 12px; margin-top: 24px; }
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:disabled { background: #aaa !important; cursor: not-allowed; }
+    .btn-save { background: #2a6496; color: white; }
+    .btn-save:hover { background: #1e4d75; }
+    .btn-unsub { background: #fdecea; color: #c0392b; }
+    .btn-unsub:hover { background: #f5c6cb; }
+    .status {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .status.success { background: #e8f5e9; color: #2e7d32; display: block; }
+    .status.error { background: #fdecea; color: #c0392b; display: block; }
+    .no-email {
+      color: #c0392b;
+      font-size: 0.95rem;
+    }
+    a.back-link {
+      display: inline-block;
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: #2a6496;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Manage Alerts</h1>
+  <p class="subtitle">Update your town subscriptions or unsubscribe.</p>
+
+  <div id="main-content">
+    <div class="loading">Loading...</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ── Replace these with your actual values from Supabase project settings ──
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const ARCGIS_URL = 'https://services1.arcgis.com/7iJyYTjCtKsZS1LR/arcgis/rest/services/StockedFish_View/FeatureServer/0/query';
+
+  const params = new URLSearchParams(window.location.search);
+  const email = params.get('email');
+  const action = params.get('action');
+
+  let allTowns = [];
+  let currentSubs = new Set();
+
+  async function init() {
+    const content = document.getElementById('main-content');
+
+    if (!email) {
+      content.innerHTML = `
+        <p class="no-email">No email address provided.</p>
+        <a class="back-link" href="index.html">Sign up for alerts</a>
+      `;
+      return;
+    }
+
+    // If unsubscribe action is in the URL, go straight to confirm
+    if (action === 'unsubscribe') {
+      renderUnsubscribeConfirm(content);
+      return;
+    }
+
+    try {
+      const [townsRes, subsRes] = await Promise.all([
+        fetchTowns(),
+        fetchSubscriptions(),
+      ]);
+      allTowns = townsRes;
+      currentSubs = new Set(subsRes);
+      renderManageForm(content);
+    } catch (e) {
+      content.innerHTML = '<div class="loading">Failed to load. Please refresh.</div>';
+    }
+  }
+
+  async function fetchTowns() {
+    const p = new URLSearchParams({
+      f: 'json',
+      where: '1=1',
+      outFields: 'Town',
+      returnDistinctValues: 'true',
+      returnGeometry: 'false',
+      resultRecordCount: '500',
+      orderByFields: 'Town ASC',
+    });
+    const res = await fetch(`${ARCGIS_URL}?${p}`);
+    const data = await res.json();
+    return [...new Set(data.features.map(f => f.attributes.Town).filter(Boolean))].sort();
+  }
+
+  async function fetchSubscriptions() {
+    const { data, error } = await supabase.rpc('get_user_subscriptions', { user_email: email });
+    if (error) throw error;
+    return (data || []).map(row => row.filter_value);
+  }
+
+  function renderTowns(towns, preselected) {
+    const list = document.getElementById('town-list');
+    if (!list) return;
+    list.innerHTML = towns.map(town => {
+      const checked = preselected.has(town) ? 'checked' : '';
+      return `<label>
+        <input type="checkbox" name="town" value="${town}" ${checked}>
+        ${town}
+      </label>`;
+    }).join('') || '<div class="loading">No matching towns.</div>';
+  }
+
+  function getCheckedTowns() {
+    return [...document.querySelectorAll('input[name="town"]:checked')].map(el => el.value);
+  }
+
+  function renderManageForm(container) {
+    container.innerHTML = `
+      <div class="email-display">Subscriptions for <strong>${email}</strong></div>
+      <div class="section-label">Towns you're watching</div>
+      <input type="text" class="search-input" id="town-search" placeholder="Search towns...">
+      <div class="select-all-row">
+        <a onclick="selectAll()">Select all</a>
+        <a onclick="clearAll()">Clear all</a>
+      </div>
+      <div class="town-list" id="town-list"></div>
+      <div class="btn-row">
+        <button class="btn-save" id="save-btn" onclick="saveSubscriptions()">Save changes</button>
+        <button class="btn-unsub" onclick="renderUnsubscribeConfirm(document.getElementById('main-content'))">Unsubscribe</button>
+      </div>
+      <div class="status" id="status-msg"></div>
+    `;
+
+    renderTowns(allTowns, currentSubs);
+
+    document.getElementById('town-search').addEventListener('input', function () {
+      const q = this.value.toLowerCase();
+      const filtered = allTowns.filter(t => t.toLowerCase().includes(q));
+      const checked = new Set(getCheckedTowns());
+      renderTowns(filtered, checked);
+    });
+  }
+
+  function renderUnsubscribeConfirm(container) {
+    container.innerHTML = `
+      <div class="email-display">Unsubscribe <strong>${email}</strong> from all alerts?</div>
+      <div class="btn-row">
+        <button class="btn-unsub" id="confirm-unsub-btn" onclick="confirmUnsubscribe()">Yes, unsubscribe me</button>
+        <button class="btn-save" onclick="init()">Cancel</button>
+      </div>
+      <div class="status" id="status-msg"></div>
+    `;
+  }
+
+  function selectAll() {
+    document.querySelectorAll('input[name="town"]').forEach(el => el.checked = true);
+  }
+
+  function clearAll() {
+    document.querySelectorAll('input[name="town"]').forEach(el => el.checked = false);
+  }
+
+  async function saveSubscriptions() {
+    const towns = getCheckedTowns();
+    const statusEl = document.getElementById('status-msg');
+    const btn = document.getElementById('save-btn');
+
+    statusEl.className = 'status';
+    statusEl.textContent = '';
+
+    if (towns.length === 0) {
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Please select at least one town, or use Unsubscribe to opt out entirely.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await supabase.rpc('set_user_subscriptions', {
+      user_email: email,
+      towns: towns,
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Save changes';
+
+    if (error) {
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Something went wrong. Please try again.';
+    } else {
+      currentSubs = new Set(towns);
+      statusEl.className = 'status success';
+      statusEl.textContent = `Saved. You're now watching ${towns.length} town${towns.length > 1 ? 's' : ''}.`;
+    }
+  }
+
+  async function confirmUnsubscribe() {
+    const btn = document.getElementById('confirm-unsub-btn');
+    const statusEl = document.getElementById('status-msg');
+
+    btn.disabled = true;
+    btn.textContent = 'Unsubscribing...';
+
+    const { error } = await supabase.rpc('unsubscribe_user', { user_email: email });
+
+    if (error) {
+      btn.disabled = false;
+      btn.textContent = 'Yes, unsubscribe me';
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Something went wrong. Please try again.';
+    } else {
+      document.getElementById('main-content').innerHTML = `
+        <div class="status success" style="display:block">
+          You've been unsubscribed. No more alerts will be sent to ${email}.
+        </div>
+        <a class="back-link" href="index.html">Sign up again</a>
+      `;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
