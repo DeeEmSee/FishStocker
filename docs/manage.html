@@ -181,7 +181,6 @@
       returnDistinctValues: 'true',
       returnGeometry: 'false',
       resultRecordCount: '500',
-      orderByFields: 'Town ASC',
     });
     const res = await fetch(`${ARCGIS_URL}?${p}`);
     const data = await res.json();
