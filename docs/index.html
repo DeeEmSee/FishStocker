@@ -140,7 +140,7 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlZGh2cnpsZm5laWVtam51ZmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDYwMzMsImV4cCI6MjA5MTc4MjAzM30.POUzdvdKKHVfCD0lg9koCW8EEJGj4Xtd3cSsCpFVu_o';
   // ─────────────────────────────────────────────────────────────────────────
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const ARCGIS_URL = 'https://services1.arcgis.com/7iJyYTjCtKsZS1LR/arcgis/rest/services/StockedFish_View/FeatureServer/0/query';
 
@@ -219,7 +219,7 @@
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
-    const { error } = await supabase.rpc('set_user_subscriptions', {
+    const { error } = await db.rpc('set_user_subscriptions', {
       user_email: email,
       towns: towns,
     });
