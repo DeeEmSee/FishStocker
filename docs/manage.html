@@ -125,14 +125,13 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  // ── Replace these with your actual values from Supabase project settings ──
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
   const SUPABASE_URL = 'https://xedhvrzlfneiemjnufhm.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlZGh2cnpsZm5laWVtam51ZmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDYwMzMsImV4cCI6MjA5MTc4MjAzM30.POUzdvdKKHVfCD0lg9koCW8EEJGj4Xtd3cSsCpFVu_o';
-  // ─────────────────────────────────────────────────────────────────────────
 
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const ARCGIS_URL = 'https://services1.arcgis.com/7iJyYTjCtKsZS1LR/arcgis/rest/services/StockedFish_View/FeatureServer/0/query';
 
@@ -313,6 +312,14 @@
       `;
     }
   }
+
+  // Expose functions used in dynamically generated HTML onclick attributes
+  window.selectAll = selectAll;
+  window.clearAll = clearAll;
+  window.saveSubscriptions = saveSubscriptions;
+  window.renderUnsubscribeConfirm = renderUnsubscribeConfirm;
+  window.confirmUnsubscribe = confirmUnsubscribe;
+  window.init = init;
 
   init();
 </script>
