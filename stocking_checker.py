@@ -54,7 +54,7 @@ def get_coming_soon():
             f"( ( (Planned = 'Y') AND (join_count IS NOT NULL) ) "
             f"AND (Stocked_Date_min > timestamp '{now}') ) ) "
         ),
-        'outFields': 'Waterbody,Town_1',
+        'outFields': 'Waterbody,Town_1,Stocked_Date_min',
     }
     response = requests.get(STOCKING_BODIES_ENDPOINT, params=params)
     response.raise_for_status()
@@ -143,6 +143,7 @@ def format_email_html(stockings, coming_soon, recipient_email):
             <tr style='background:#2a6496; color:white'>
               <th style='padding:8px; text-align:left'>Town</th>
               <th style='padding:8px; text-align:left'>Waterbody</th>
+              <th style='padding:8px; text-align:left'>Planned Date</th>
             </tr>
           </thead>
           <tbody>
@@ -151,10 +152,13 @@ def format_email_html(stockings, coming_soon, recipient_email):
             bg = '#f5f5f5' if i % 2 == 0 else '#ffffff'
             town = item['attributes']['Town_1']
             waterbody = item['attributes']['Waterbody']
+            raw_date = item['attributes'].get('Stocked_Date_min')
+            planned_date = datetime.fromtimestamp(raw_date / 1000).strftime('%Y-%m-%d') if raw_date else 'TBD'
             html += f"""
             <tr style='background:{bg}'>
               <td style='padding:8px'>{town}</td>
               <td style='padding:8px'>{waterbody}</td>
+              <td style='padding:8px'>{planned_date}</td>
             </tr>
             """
         html += "</tbody></table><br>"
