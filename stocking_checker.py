@@ -35,7 +35,8 @@ def get_stocked_fish():
         'resultOffset': 0,
         'returnGeometry': 'false',
         'where': '1=1',
-        'outFields': 'OBJECTID,Town,Waterbody,Species,Stocked_Date,Loaded_Number',
+        'outFields': 'OBJECTID,Town,Waterbody,Species,Size,Stocked_Date,Loaded_Number',
+        'sqlFormat': 'none',
         'orderByFields': 'Stocked_Date DESC',
     }
     response = requests.get(STOCKED_FISH_ENDPOINT, params=params)
@@ -84,6 +85,7 @@ def prettify_stocking(item):
         'waterbody': attrs['Waterbody'].split(' - ')[0],
         'species': SPECIES_MAP.get(attrs['Species'], attrs['Species']),
         'loaded_number': attrs.get('Loaded_Number') or '',
+        'size': attrs.get('Size') or '',
         'stocked_date': datetime.fromtimestamp(attrs['Stocked_Date'] / 1000).strftime('%Y-%m-%d'),
     }
 
@@ -119,6 +121,7 @@ def format_email_html(stockings, coming_soon, recipient_email):
           <th style='padding:8px; text-align:left'>Town</th>
           <th style='padding:8px; text-align:left'>Waterbody</th>
           <th style='padding:8px; text-align:left'>Species</th>
+          <th style='padding:8px; text-align:left'>Size (in)</th>
           <th style='padding:8px; text-align:left'># Stocked</th>
           <th style='padding:8px; text-align:left'>Date</th>
         </tr>
@@ -132,6 +135,7 @@ def format_email_html(stockings, coming_soon, recipient_email):
           <td style='padding:8px'>{s['town']}</td>
           <td style='padding:8px'>{s['waterbody']}</td>
           <td style='padding:8px'>{s['species']}</td>
+          <td style='padding:8px'>{s['size']}</td>
           <td style='padding:8px'>{s['loaded_number']}</td>
           <td style='padding:8px'>{s['stocked_date']}</td>
         </tr>
