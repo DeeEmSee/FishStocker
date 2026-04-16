@@ -35,7 +35,7 @@ def get_stocked_fish():
         'resultOffset': 0,
         'returnGeometry': 'false',
         'where': '1=1',
-        'outFields': '*',
+        'outFields': 'OBJECTID,Town,Waterbody,Species,Stocked_Date,Loaded_Number',
         'orderByFields': 'Stocked_Date DESC',
     }
     response = requests.get(STOCKED_FISH_ENDPOINT, params=params)
