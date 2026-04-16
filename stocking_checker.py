@@ -2,7 +2,7 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from supabase import create_client
 
@@ -30,12 +30,11 @@ SPECIES_MAP = {
 
 
 def get_stocked_fish():
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     params = {
         'f': 'json',
-        'resultOffset': 0,
         'returnGeometry': 'false',
-        'where': '1=1',
-        'outFields': 'OBJECTID,Town,Waterbody,Species,Size,Stocked_Date,Loaded_Number',
+        'where': f"Stocked_Date >= timestamp '{thirty_days_ago}'",
         'sqlFormat': 'none',
         'orderByFields': 'Stocked_Date DESC',
     }
