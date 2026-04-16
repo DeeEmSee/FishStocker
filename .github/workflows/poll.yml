@@ -2,8 +2,8 @@ name: Poll Fish Stocking
 
 on:
   schedule:
-    # Runs every 3 hours
-    - cron: '0 */3 * * *'
+    # Runs hourly 8am-10pm ET (12pm-2am UTC) every day
+    - cron: '0 12-23,0-2 * * *'
   # Allows you to trigger a run manually from the Actions tab
   workflow_dispatch:
 

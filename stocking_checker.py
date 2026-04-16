@@ -83,6 +83,7 @@ def prettify_stocking(item):
         'town': attrs['Town'],
         'waterbody': attrs['Waterbody'].split(' - ')[0],
         'species': SPECIES_MAP.get(attrs['Species'], attrs['Species']),
+        'loaded_number': attrs.get('Loaded_Number') or '',
         'stocked_date': datetime.fromtimestamp(attrs['Stocked_Date'] / 1000).strftime('%Y-%m-%d'),
     }
 
@@ -118,6 +119,7 @@ def format_email_html(stockings, coming_soon, recipient_email):
           <th style='padding:8px; text-align:left'>Town</th>
           <th style='padding:8px; text-align:left'>Waterbody</th>
           <th style='padding:8px; text-align:left'>Species</th>
+          <th style='padding:8px; text-align:left'># Stocked</th>
           <th style='padding:8px; text-align:left'>Date</th>
         </tr>
       </thead>
@@ -130,6 +132,7 @@ def format_email_html(stockings, coming_soon, recipient_email):
           <td style='padding:8px'>{s['town']}</td>
           <td style='padding:8px'>{s['waterbody']}</td>
           <td style='padding:8px'>{s['species']}</td>
+          <td style='padding:8px'>{s['loaded_number']}</td>
           <td style='padding:8px'>{s['stocked_date']}</td>
         </tr>
         """
